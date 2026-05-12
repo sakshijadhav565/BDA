@@ -1,0 +1,188 @@
+import java.io.IOException;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class WordCount {
+
+    public static class TokenizerMapper
+            extends Mapper<Object, Text, Text, IntWritable> {
+
+        private final static IntWritable one = new IntWritable(1);
+        private Text word = new Text();
+
+        public void map(Object key, Text value, Context context)
+                throws IOException, InterruptedException {
+
+            StringTokenizer itr = new StringTokenizer(value.toString());
+
+            while (itr.hasMoreTokens()) {
+                word.set(itr.nextToken());
+                context.write(word, one);
+            }
+        }
+    }
+
+    public static class IntSumReducer
+            extends Reducer<Text, IntWritable, Text, IntWritable> {
+
+        private IntWritable result = new IntWritable();
+
+        public void reduce(Text key, Iterable<IntWritable> values,
+                           Context context)
+                throws IOException, InterruptedException {
+
+            int sum = 0;
+
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+
+            result.set(sum);
+
+            context.write(key, result);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+
+        Configuration conf = new Configuration();
+
+        Job job = Job.getInstance(conf, "word count");
+
+        job.setJarByClass(WordCount.class);
+        job.setMapperClass(TokenizerMapper.class);
+        job.setReducerClass(IntSumReducer.class);
+
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+
+/*
+
+prerequisties
+
+in vs terminal:-
+java -version
+8 should come
+
+echo $JAVA_HOME
+8 should come
+
+if no:
+nano $HADOOP_HOME/etc/hadoop/hadoop-env.sh
+
+and set 8
+
+hadoop version
+
+
+start-dfs.sh 
+start-yarn.sh
+
+jps
+should see everything
+
+if not working:
+stop-all.sh
+start-all.sh
+
+still broken:
+hdfs namenode -format
+start-all.sh
+
+leave safe mode:
+hdfs dfsadmin -safemode leave
+
+
+now 
+
+
+write program on vs code
+save as WordCountTopNFreq.java
+Desktop->BDA
+
+cd Desktop
+cd BDA
+
+nano words.txt
+
+hdfs dfs -mkdir /exp4
+
+hdfs dfs -ls /
+
+hdfs dfs -put words.txt /exp4
+
+# VERIFY FILE
+hdfs dfs -ls /exp4
+
+rm -rf classes
+
+mkdir classes
+
+javac -classpath $(hadoop classpath) -d classes WordCountTopNFreq.java
+
+# CHECK CLASS FILES
+ls classes
+
+# =========================
+# CREATE JAR
+# =========================
+
+jar -cvf exp4.jar -C classes/ .
+
+# CHECK JAR EXISTS
+ls
+
+# =========================
+# RUN MAPREDUCE
+# =========================
+
+hadoop jar exp4.jar WordCountTopNFreq /exp4/words.txt /output/wordcount
+
+# =========================
+# VIEW OUTPUT
+# =========================
+
+hdfs dfs -cat /output/wordcount/part-r-00000
+
+# =========================
+# IF OUTPUT ALREADY EXISTS
+# =========================
+
+hdfs dfs -rm -r /output
+
+# RUN AGAIN
+hadoop jar exp4.jar WordCountTopNFreq /exp4/words.txt /output/wordcount
+
+# =========================
+# CHECK HDFS FILES
+# =========================
+
+hdfs dfs -ls /output/wordcount
+
+# =========================
+# STOP HADOOP (OPTIONAL)
+# =========================
+
+stop-dfs.sh
+
+stop-yarn.sh
+
+*/
